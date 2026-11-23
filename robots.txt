@@ -1,2 +1,3 @@
 User-agent: *
 Allow: /
+Sitemap: https://achdishes.com/sitemap.xml
