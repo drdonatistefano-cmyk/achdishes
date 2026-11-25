@@ -2916,7 +2916,10 @@ function route(){
 
 // ===== Vista: scheda ricetta (rende lo SCHEMA in ordine) =====
 const HEAVYC={};
-function caricaRegione(reg){if(typeof HEAVY==="undefined"||!HEAVY[reg])return Promise.resolve();return HEAVYC[reg]||(HEAVYC[reg]=Promise.all([fetch(HEAVY[reg]).then(x=>x.json()),(window.ACH_EN&&ACH_EN.reg)?ACH_EN.reg(reg):null]).then(([o])=>{for(const r of RECIPES){const h=o[r.id];if(!h)continue;r.procedimento=h.proc||[];r.storia=h.storia||"";r.vino=h.vino||"";r.varianti=h.var||"";r.fonti=h.fonti||[];r.cons=h.cons||"";r.cons_gen=!!h.cons_gen;r._full=1}}).catch(()=>{delete HEAVYC[reg]}))}
+// 25/11/2026: se il file dei dati col nome di questa versione manca (pagina rimasta aperta da prima di una pubblicazione),
+// si prende la copia col nome fisso, senza cache; se manca anche quella, si ricarica la pagina una volta sola.
+function achJson(u,fisso){const ok=x=>{if(!x.ok)throw new Error(x.status);try{sessionStorage.removeItem('achRicarica')}catch(_){}return x.json()};return fetch(u).then(ok).catch(()=>fetch(fisso+'?t='+Date.now(),{cache:'no-store'}).then(ok)).catch(e=>{try{if(!sessionStorage.getItem('achRicarica')){sessionStorage.setItem('achRicarica','1');location.reload()}}catch(_){}throw e})}
+function caricaRegione(reg){if(typeof HEAVY==="undefined"||!HEAVY[reg])return Promise.resolve();return HEAVYC[reg]||(HEAVYC[reg]=Promise.all([achJson(HEAVY[reg],'d/'+reg+'.json'),(window.ACH_EN&&ACH_EN.reg)?ACH_EN.reg(reg):null]).then(([o])=>{for(const r of RECIPES){const h=o[r.id];if(!h)continue;r.procedimento=h.proc||[];r.storia=h.storia||"";r.vino=h.vino||"";r.varianti=h.var||"";r.fonti=h.fonti||[];r.cons=h.cons||"";r.cons_gen=!!h.cons_gen;r._full=1}}).catch(()=>{delete HEAVYC[reg]}))}
 function waText(r){const L=[`*${r.nome}*`+(placeLabel(r)?` (${placeLabel(r)})`:""),r.descrizione,"",`*Ingredienti* (${r.porzioni||4} persone)`];
  (r.ingredienti||[]).forEach(i=>L.push("• "+(/^q\.?b\.?$/i.test(i.quantita||"")?`${i.nome} q.b.`:[i.quantita,i.nome].filter(Boolean).join(" "))));
  if(r.procedimento&&r.procedimento.length){L.push("","*Procedimento*");r.procedimento.forEach((x,k)=>L.push(`${k+1}. ${x}`))}
@@ -3595,9 +3598,9 @@ function nota(){if(!/^#ricetta-/.test(location.hash))return;const m=document.get
 function caselle(){for(const e of document.querySelectorAll('input[type="search"],#q'))ricerca(e)}
 // 20/11/2026: procedimenti, storie e varianti in inglese, un file per regione (app5.js lo chiede insieme ai testi italiani)
 function aggiungi(o){if(!o)return;for(const k in o){D[k]=o[k];DL[k.toLowerCase()]=o[k]}CACHE.clear();const m=document.getElementById("main");if(m)giro(m)}
-const ENC={};function reg(r){if(typeof HEAVY_EN==="undefined"||!HEAVY_EN[r])return Promise.resolve();return ENC[r]||(ENC[r]=fetch(HEAVY_EN[r]).then(x=>x.json()).then(aggiungi).catch(()=>{delete ENC[r]}))}
+const ENC={};function reg(r){if(typeof HEAVY_EN==="undefined"||!HEAVY_EN[r])return Promise.resolve();return ENC[r]||(ENC[r]=(typeof achJson==="function"?achJson(HEAVY_EN[r],"d/en-"+r+".json"):fetch(HEAVY_EN[r]).then(x=>x.json())).then(aggiungi).catch(()=>{delete ENC[r]}))}
 W.ACH_EN={tr,qIt,aggiungi,reg};
-function via(){if(typeof EN_DIZ==="string"&&!Object.keys(D).length){const h=document.documentElement;h.classList.add("enw");const fine=()=>h.classList.remove("enw");setTimeout(fine,2500);fetch(EN_DIZ).then(x=>x.json()).then(o=>{carica(o);CACHE.clear();via0();fine()}).catch(()=>{fine()});return}via0()}
+function via(){if(typeof EN_DIZ==="string"&&!Object.keys(D).length){const h=document.documentElement;h.classList.add("enw");const fine=()=>h.classList.remove("enw");setTimeout(fine,2500);(typeof achJson==="function"?achJson(EN_DIZ,"d/en.json"):fetch(EN_DIZ).then(x=>x.json())).then(o=>{carica(o);CACHE.clear();via0();fine()}).catch(()=>{fine()});return}via0()}
 function via0(){try{if(typeof HEAVYC!=="undefined")for(const r in HEAVYC)reg(r)}catch(e){}document.title="Ach's Dishes — The recipes of Italy";bottoni();caselle();giro(document.body);
  MO.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:ATTR});
  new MutationObserver(()=>{caselle();bottoni();nota()}).observe(document.body,{childList:true,subtree:true})}
